@@ -1,0 +1,9 @@
+services:
+  snake:
+    build: .
+    container_name: snake
+    restart: unless-stopped
+    ports:
+      - "8774:8080"
+    mem_limit: 16m
+    cpus: 0.05
