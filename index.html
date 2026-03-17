@@ -233,7 +233,7 @@ canvas {
   }
 
   // Game state
-  var snake, dir, nextDir, food, score, hiScore, state, speed, moveTimer, lastTime;
+  var snake, dir, inputQueue, food, score, hiScore, state, speed, moveTimer, lastTime;
 
   hiScore = parseInt(localStorage.getItem('nokia-snake-hi') || '0');
 
@@ -244,7 +244,7 @@ canvas {
       {x:mx, y:my}, {x:mx-1, y:my}, {x:mx-2, y:my}, {x:mx-3, y:my}, {x:mx-4, y:my}
     ];
     dir = {x:1, y:0};
-    nextDir = {x:1, y:0};
+    inputQueue = [];
     score = 0;
     state = 'title';
     speed = 140;
@@ -263,13 +263,16 @@ canvas {
   }
 
   function setDir(dx, dy) {
-    if (dir.x === -dx && dir.y === -dy) return;
-    nextDir = {x: dx, y: dy};
+    // Use the effective direction (last queued or current) for reverse check
+    var effective = inputQueue.length > 0 ? inputQueue[inputQueue.length - 1] : dir;
+    if (effective.x === -dx && effective.y === -dy) return;
+    if (effective.x === dx && effective.y === dy) return;
+    if (inputQueue.length < 3) inputQueue.push({x: dx, y: dy});
     if (state === 'title') state = 'playing';
   }
 
   function step() {
-    dir = nextDir;
+    if (inputQueue.length > 0) dir = inputQueue.shift();
     var head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
 
     // Wall collision (border mode like in the screenshot)
