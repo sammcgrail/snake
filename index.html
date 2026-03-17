@@ -7,7 +7,7 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  background: #1a1a2e;
+  background: #2b2b2b;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -19,228 +19,271 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  font-family: Arial, sans-serif;
 }
-
-/* Nokia phone body */
-#phone {
-  background: linear-gradient(145deg, #3a4a5c, #2a3a4c);
-  border-radius: 28px;
-  padding: 20px 16px 28px;
-  box-shadow:
-    0 8px 32px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(255,255,255,0.1),
-    0 0 0 3px #222;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 340px;
-  width: 90vw;
-}
-
-#brand {
-  color: #8a9ab0;
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-/* Screen bezel */
-#screen-bezel {
-  background: #1e2830;
+#lcd {
+  background: #5a7a1a;
   border-radius: 8px;
-  padding: 10px 12px;
-  width: 100%;
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+  padding: 12px;
+  box-shadow:
+    0 0 60px rgba(90, 122, 26, 0.4),
+    inset 0 0 30px rgba(0, 0, 0, 0.15);
 }
-
-#score-bar {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-  padding: 0 2px;
-}
-#score-bar span {
-  font-size: 10px;
-  letter-spacing: 1px;
-}
-
 canvas {
   display: block;
-  width: 100%;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  border-radius: 2px;
 }
-
-/* D-pad and buttons below screen */
-#button-area {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-#nav-label {
-  color: #6a7a8a;
-  font-size: 9px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-#dpad {
-  display: grid;
-  grid-template-columns: 44px 44px 44px;
-  grid-template-rows: 44px 44px;
-  gap: 2px;
-  justify-content: center;
-}
-.d-btn {
-  background: linear-gradient(145deg, #4a5a6c, #3a4a5c);
-  color: #8a9ab0;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.d-btn:active {
-  background: linear-gradient(145deg, #3a4a5c, #2a3a4c);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-  transform: translateY(1px);
+#info {
+  color: #3a5a0a;
+  font-family: monospace;
+  font-size: 11px;
+  text-align: center;
+  margin-top: 6px;
+  letter-spacing: 1px;
 }
 </style>
 </head>
 <body>
-<div id="phone">
-  <div id="brand">NOKIA</div>
-  <div id="screen-bezel">
-    <div id="score-bar">
-      <span id="score-display"></span>
-      <span id="high-display"></span>
-    </div>
-    <canvas id="game"></canvas>
-  </div>
-  <div id="button-area">
-    <span id="nav-label">navigate</span>
-    <div id="dpad">
-      <div></div>
-      <button class="d-btn" data-dir="up">▲</button>
-      <div></div>
-      <button class="d-btn" data-dir="left">◄</button>
-      <button class="d-btn" data-dir="down">▼</button>
-      <button class="d-btn" data-dir="right">►</button>
-    </div>
-  </div>
+<div id="lcd">
+  <canvas id="game"></canvas>
+  <div id="info">SCORE: <span id="sc">0</span></div>
 </div>
 <script>
 (function() {
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  const scoreEl = document.getElementById('score-display');
-  const hiEl = document.getElementById('high-display');
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var scEl = document.getElementById('sc');
 
-  // Nokia 3310 authentic palette
-  const FG = '#43523d';   // dark olive — "on" pixels
-  const BG = '#c7f0d8';   // pale green — "off" pixels
-  const GRID_DIM = '#bde0c8'; // slightly darker for pixel grid gaps
+  // Nokia 3310 LCD: 84x48 pixels. We render at exact resolution then scale up.
+  // Game grid: each snake cell = 3x3 pixels. Border = 1px.
+  // Play area: 26 cols x 14 rows (78x42 px) + 1px border each side + some margin = 84x48
+  var LCD_W = 84;
+  var LCD_H = 48;
+  var CELL = 3;        // snake cell = 3x3 LCD pixels
+  var BORDER = 1;      // 1px border on each side
+  // Play area starts after border
+  var PLAY_X = 3;      // left margin (border area)
+  var PLAY_Y = 3;      // top margin
+  var COLS = 26;       // play grid columns
+  var ROWS = 14;       // play grid rows
 
-  // Nokia 3310: 84x48 pixel display, but game area is ~21x12 in 4px cells
-  // We use 21x13 grid (21 cols, 13 rows) to be close to the real aspect ratio
-  const COLS = 21;
-  const ROWS = 13;
+  // Colors — authentic Nokia 3310 LCD
+  var BG = '#9bbc0f';    // LCD "off" — bright green
+  var FG = '#0f380f';    // LCD "on" — very dark green
+  var BG2 = '#8bac0f';   // subtle grid tint
 
-  // Each "cell" is rendered as a block of sub-pixels to simulate the LCD dot matrix
-  // We render at a higher res then scale with CSS
-  const SUB = 4; // 4x4 sub-pixels per cell for that blocky look
-
-  let dpr, pxPerCell, canvasW, canvasH;
+  var dpr, scale;
 
   function setupCanvas() {
     dpr = window.devicePixelRatio || 1;
-    // Calculate pixel size to fit the screen
-    const bezel = document.getElementById('screen-bezel');
-    const availW = bezel.clientWidth - 24;
-    // Each cell = SUB pixels, scale to fit
-    pxPerCell = Math.max(4, Math.floor(availW / COLS));
-    // Make pxPerCell divisible by SUB for clean sub-pixels
-    pxPerCell = Math.floor(pxPerCell / SUB) * SUB;
-    if (pxPerCell < SUB) pxPerCell = SUB;
-    canvasW = COLS * pxPerCell;
-    canvasH = ROWS * pxPerCell;
-    canvas.style.width = canvasW + 'px';
-    canvas.style.height = canvasH + 'px';
-    canvas.width = canvasW * dpr;
-    canvas.height = canvasH * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Scale LCD to fit screen
+    var maxW = window.innerWidth - 40;
+    var maxH = window.innerHeight - 80;
+    scale = Math.min(Math.floor(maxW / LCD_W), Math.floor(maxH / LCD_H));
+    scale = Math.max(scale, 3);
+    canvas.style.width = (LCD_W * scale) + 'px';
+    canvas.style.height = (LCD_H * scale) + 'px';
+    canvas.width = LCD_W * scale * dpr;
+    canvas.height = LCD_H * scale * dpr;
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    // Disable smoothing for crisp pixels
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  // Pixel buffer — we draw into an 84x48 array then render
+  var pixels = [];
+  function clearPixels() {
+    pixels = [];
+    for (var y = 0; y < LCD_H; y++) {
+      pixels[y] = [];
+      for (var x = 0; x < LCD_W; x++) {
+        pixels[y][x] = 0;
+      }
+    }
+  }
+
+  function setPixel(x, y) {
+    if (x >= 0 && x < LCD_W && y >= 0 && y < LCD_H) pixels[y][x] = 1;
+  }
+
+  function renderPixels() {
+    for (var y = 0; y < LCD_H; y++) {
+      for (var x = 0; x < LCD_W; x++) {
+        ctx.fillStyle = pixels[y][x] ? FG : BG;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+
+  // Draw border — dashed line around play area
+  function drawBorder() {
+    // Top border
+    for (var x = 1; x < LCD_W - 1; x++) {
+      if (x % 2 === 0) setPixel(x, 1);
+    }
+    // Bottom border
+    for (var x = 1; x < LCD_W - 1; x++) {
+      if (x % 2 === 0) setPixel(x, LCD_H - 2);
+    }
+    // Left border
+    for (var y = 1; y < LCD_H - 1; y++) {
+      if (y % 2 === 0) setPixel(1, y);
+    }
+    // Right border
+    for (var y = 1; y < LCD_H - 1; y++) {
+      if (y % 2 === 0) setPixel(LCD_W - 2, y);
+    }
+  }
+
+  // Draw a snake cell at grid position
+  function drawSnakeCell(gx, gy) {
+    var px = PLAY_X + gx * CELL;
+    var py = PLAY_Y + gy * CELL;
+    for (var dy = 0; dy < CELL; dy++) {
+      for (var dx = 0; dx < CELL; dx++) {
+        setPixel(px + dx, py + dy);
+      }
+    }
+  }
+
+  // Fill between adjacent snake cells for connected look
+  function drawSnakeConnection(seg, next) {
+    var dx = next.x - seg.x;
+    var dy = next.y - seg.y;
+    // Handle wrapping — if distance > 1, they wrapped, don't connect
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) return;
+    // The cells are already 3x3 and adjacent, so they connect naturally
+    // But we want them to look like one continuous body
+  }
+
+  // Draw food — small cross/plus shape
+  function drawFood(gx, gy) {
+    var px = PLAY_X + gx * CELL;
+    var py = PLAY_Y + gy * CELL;
+    // Cross pattern centered in 3x3 cell
+    setPixel(px + 1, py);     // top
+    setPixel(px, py + 1);     // left
+    setPixel(px + 1, py + 1); // center
+    setPixel(px + 2, py + 1); // right
+    setPixel(px + 1, py + 2); // bottom
+  }
+
+  // Bitmap font — 3x5 pixel characters
+  var FONT = {
+    'S':[[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+    'N':[[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
+    'A':[[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+    'K':[[1,0,1],[1,1,0],[1,0,0],[1,1,0],[1,0,1]],
+    'E':[[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,1,1]],
+    'G':[[1,1,1],[1,0,0],[1,0,1],[1,0,1],[1,1,1]],
+    'M':[[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
+    'O':[[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+    'V':[[1,0,1],[1,0,1],[1,0,1],[0,1,0],[0,1,0]],
+    'R':[[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,0,1]],
+    'P':[[1,1,1],[1,0,1],[1,1,1],[1,0,0],[1,0,0]],
+    'L':[[1,0,0],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
+    'Y':[[1,0,1],[1,0,1],[0,1,0],[0,1,0],[0,1,0]],
+    'I':[[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
+    'W':[[1,0,1],[1,0,1],[1,1,1],[1,1,1],[1,0,1]],
+    'T':[[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+    'H':[[1,0,1],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+    'D':[[1,1,0],[1,0,1],[1,0,1],[1,0,1],[1,1,0]],
+    'C':[[1,1,1],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
+    'U':[[1,0,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+    'B':[[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],
+    'F':[[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,0,0]],
+    'X':[[1,0,1],[1,0,1],[0,1,0],[1,0,1],[1,0,1]],
+    ' ':[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],
+    '0':[[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+    '1':[[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
+    '2':[[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+    '3':[[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]],
+    '4':[[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+    '5':[[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+    '6':[[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],
+    '7':[[1,1,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]],
+    '8':[[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],
+    '9':[[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]],
+    ':':[[0],[1],[0],[1],[0]],
+  };
+
+  function drawText(str, sx, sy) {
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i].toUpperCase();
+      var g = FONT[ch];
+      if (!g) continue;
+      var w = g[0].length;
+      for (var r = 0; r < 5; r++) {
+        for (var c = 0; c < w; c++) {
+          if (g[r][c]) setPixel(sx + c, sy + r);
+        }
+      }
+      sx += w + 1;
+    }
+  }
+
+  function textWidth(str) {
+    var w = 0;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str[i].toUpperCase();
+      var g = FONT[ch];
+      w += (g ? g[0].length : 3) + 1;
+    }
+    return w - 1;
   }
 
   // Game state
-  let snake, dir, nextDir, food, score, hiScore, state, speed, lastTime, moveTimer;
-  // state: 'title' | 'playing' | 'dead'
+  var snake, dir, nextDir, food, score, hiScore, state, speed, moveTimer, lastTime;
 
   hiScore = parseInt(localStorage.getItem('nokia-snake-hi') || '0');
 
   function init() {
-    const mx = Math.floor(COLS / 2);
-    const my = Math.floor(ROWS / 2);
+    var mx = Math.floor(COLS / 2);
+    var my = Math.floor(ROWS / 2);
     snake = [
-      { x: mx, y: my },
-      { x: mx - 1, y: my },
-      { x: mx - 2, y: my },
-      { x: mx - 3, y: my }
+      {x:mx, y:my}, {x:mx-1, y:my}, {x:mx-2, y:my}, {x:mx-3, y:my}, {x:mx-4, y:my}
     ];
-    dir = { x: 1, y: 0 };
-    nextDir = { x: 1, y: 0 };
+    dir = {x:1, y:0};
+    nextDir = {x:1, y:0};
     score = 0;
     state = 'title';
-    speed = 160;
+    speed = 140;
     moveTimer = 0;
+    lastTime = 0;
     placeFood();
-    updateHUD();
+    scEl.textContent = '0';
   }
 
   function placeFood() {
-    let pos;
+    var pos;
     do {
-      pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
-    } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+      pos = {x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS)};
+    } while (snake.some(function(s) { return s.x === pos.x && s.y === pos.y; }));
     food = pos;
-  }
-
-  function updateHUD() {
-    scoreEl.textContent = 'Score:' + score;
-    scoreEl.style.color = FG;
-    hiEl.textContent = 'Hi:' + hiScore;
-    hiEl.style.color = FG;
   }
 
   function setDir(dx, dy) {
     if (dir.x === -dx && dir.y === -dy) return;
-    nextDir = { x: dx, y: dy };
+    nextDir = {x: dx, y: dy};
     if (state === 'title') state = 'playing';
   }
 
   function step() {
     dir = nextDir;
-    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    var head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
 
-    // Wrap around edges (Nokia default — no walls)
-    if (head.x < 0) head.x = COLS - 1;
-    if (head.x >= COLS) head.x = 0;
-    if (head.y < 0) head.y = ROWS - 1;
-    if (head.y >= ROWS) head.y = 0;
-
-    // Self collision
-    if (snake.some(s => s.x === head.x && s.y === head.y)) {
+    // Wall collision (border mode like in the screenshot)
+    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
       state = 'dead';
       return;
+    }
+
+    // Self collision
+    for (var i = 0; i < snake.length; i++) {
+      if (snake[i].x === head.x && snake[i].y === head.y) {
+        state = 'dead';
+        return;
+      }
     }
 
     snake.unshift(head);
@@ -249,258 +292,77 @@ canvas {
       score += 10;
       if (score > hiScore) {
         hiScore = score;
-        localStorage.setItem('nokia-snake-hi', hiScore.toString());
+        localStorage.setItem('nokia-snake-hi', '' + hiScore);
       }
-      updateHUD();
+      scEl.textContent = '' + score;
       placeFood();
-      speed = Math.max(70, 160 - Math.floor(score / 30) * 5);
+      speed = Math.max(65, 140 - Math.floor(score / 30) * 5);
     } else {
       snake.pop();
     }
   }
 
-  // Draw a single "LCD pixel" (one sub-cell)
-  function drawPixel(cx, cy, px, py) {
-    const subSize = pxPerCell / SUB;
-    const gap = Math.max(0.5, subSize * 0.1); // pixel gap for LCD look
-    ctx.fillStyle = FG;
-    ctx.fillRect(
-      cx * pxPerCell + px * subSize + gap,
-      cy * pxPerCell + py * subSize + gap,
-      subSize - gap * 2,
-      subSize - gap * 2
-    );
-  }
-
-  // Draw a full cell (all sub-pixels on)
-  function drawCell(cx, cy) {
-    for (let py = 0; py < SUB; py++) {
-      for (let px = 0; px < SUB; px++) {
-        drawPixel(cx, cy, px, py);
-      }
-    }
-  }
-
-  // Draw snake segment with proper sprites
-  function drawSnakeHead(seg) {
-    // Head: filled block with "mouth" gap on the side we're facing
-    for (let py = 0; py < SUB; py++) {
-      for (let px = 0; px < SUB; px++) {
-        // Leave a gap for the "mouth" in the direction of travel
-        let isMouth = false;
-        if (dir.x === 1 && px === SUB - 1 && py >= 1 && py <= 2) isMouth = true;
-        if (dir.x === -1 && px === 0 && py >= 1 && py <= 2) isMouth = true;
-        if (dir.y === 1 && py === SUB - 1 && px >= 1 && px <= 2) isMouth = true;
-        if (dir.y === -1 && py === 0 && px >= 1 && px <= 2) isMouth = true;
-        if (!isMouth) drawPixel(seg.x, seg.y, px, py);
-      }
-    }
-  }
-
-  function drawSnakeBody(seg, prev, next) {
-    // Body: filled with a 1px pattern gap for the "segmented" look
-    for (let py = 0; py < SUB; py++) {
-      for (let px = 0; px < SUB; px++) {
-        // Checkerboard inner pattern for texture (skip center pixel)
-        let skip = false;
-        if (px === 1 && py === 1) skip = true;
-        if (px === 2 && py === 2) skip = true;
-        if (!skip) drawPixel(seg.x, seg.y, px, py);
-      }
-    }
-  }
-
-  function drawSnakeTail(seg, prev) {
-    // Tail: smaller (2x2 center pixels)
-    for (let py = 1; py < 3; py++) {
-      for (let px = 1; px < 3; px++) {
-        drawPixel(seg.x, seg.y, px, py);
-      }
-    }
-  }
-
-  // Food sprite — small dot pattern
-  function drawFood() {
-    // Classic Nokia food: small cross/diamond shape
-    drawPixel(food.x, food.y, 1, 0);
-    drawPixel(food.x, food.y, 2, 0);
-    drawPixel(food.x, food.y, 0, 1);
-    drawPixel(food.x, food.y, 1, 1);
-    drawPixel(food.x, food.y, 2, 1);
-    drawPixel(food.x, food.y, 3, 1);
-    drawPixel(food.x, food.y, 0, 2);
-    drawPixel(food.x, food.y, 1, 2);
-    drawPixel(food.x, food.y, 2, 2);
-    drawPixel(food.x, food.y, 3, 2);
-    drawPixel(food.x, food.y, 1, 3);
-    drawPixel(food.x, food.y, 2, 3);
-  }
-
-  // Bitmap font — 3x5 pixel characters for authentic Nokia text
-  const FONT = {
-    'S': [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
-    'N': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
-    'A': [[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
-    'K': [[1,0,1],[1,1,0],[1,0,0],[1,1,0],[1,0,1]],
-    'E': [[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,1,1]],
-    'G': [[1,1,1],[1,0,0],[1,0,1],[1,0,1],[1,1,1]],
-    'M': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
-    'O': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
-    'V': [[1,0,1],[1,0,1],[1,0,1],[0,1,0],[0,1,0]],
-    'R': [[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,0,1]],
-    'P': [[1,1,1],[1,0,1],[1,1,1],[1,0,0],[1,0,0]],
-    'L': [[1,0,0],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
-    'Y': [[1,0,1],[1,0,1],[0,1,0],[0,1,0],[0,1,0]],
-    'I': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
-    'W': [[1,0,1],[1,0,1],[1,1,1],[1,1,1],[1,0,1]],
-    'T': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
-    'H': [[1,0,1],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
-    'D': [[1,1,0],[1,0,1],[1,0,1],[1,0,1],[1,1,0]],
-    'C': [[1,1,1],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
-    'U': [[1,0,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
-    'B': [[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],
-    ' ': [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]],
-    ':': [[0,0,0],[0,1,0],[0,0,0],[0,1,0],[0,0,0]],
-    '!': [[0,1,0],[0,1,0],[0,1,0],[0,0,0],[0,1,0]],
-  };
-
-  function drawBitmapText(text, startX, startY, scale) {
-    // startX, startY in actual canvas pixels
-    const s = scale || 2;
-    let cx = startX;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i].toUpperCase();
-      const glyph = FONT[ch];
-      if (glyph) {
-        for (let row = 0; row < 5; row++) {
-          for (let col = 0; col < 3; col++) {
-            if (glyph[row][col]) {
-              ctx.fillStyle = FG;
-              ctx.fillRect(cx + col * s, startY + row * s, s, s);
-            }
-          }
-        }
-      }
-      cx += 4 * s; // 3px char + 1px spacing
-    }
-    return cx - startX; // width
-  }
-
-  function getTextWidth(text, scale) {
-    const s = scale || 2;
-    return text.length * 4 * s - s;
-  }
-
   function draw() {
-    // Clear to LCD background
-    ctx.fillStyle = BG;
-    ctx.fillRect(0, 0, canvasW, canvasH);
-
-    // Draw subtle pixel grid
-    const subSize = pxPerCell / SUB;
-    ctx.fillStyle = GRID_DIM;
-    for (let y = 0; y < ROWS * SUB; y++) {
-      for (let x = 0; x < COLS * SUB; x++) {
-        const px = x * subSize;
-        const py = y * subSize;
-        const gap = Math.max(0.5, subSize * 0.1);
-        // Draw grid lines (the gaps between LCD pixels)
-        ctx.fillRect(px, py, gap, subSize);
-        ctx.fillRect(px, py, subSize, gap);
-      }
-    }
+    clearPixels();
 
     if (state === 'title') {
-      // Title screen
-      const s = Math.max(2, Math.floor(pxPerCell / 4));
-      const titleW = getTextWidth('SNAKE', s * 2);
-      drawBitmapText('SNAKE', (canvasW - titleW) / 2, canvasH * 0.25, s * 2);
-
-      const subW = getTextWidth('PRESS TO PLAY', s);
-      drawBitmapText('PRESS TO PLAY', (canvasW - subW) / 2, canvasH * 0.55, s);
-
-      // Draw a small snake icon
-      const iconY = Math.floor(canvasH * 0.75);
-      const iconX = Math.floor((canvasW - pxPerCell * 5) / 2);
-      for (let i = 0; i < 5; i++) {
-        const cx = Math.floor(iconX / pxPerCell) + i;
-        const cy = Math.floor(iconY / pxPerCell);
-        if (cx >= 0 && cx < COLS && cy >= 0 && cy < ROWS) {
-          if (i === 4) {
-            // head
-            for (let py = 0; py < SUB; py++) {
-              for (let px = 0; px < SUB; px++) {
-                if (!(px === SUB-1 && py >= 1 && py <= 2))
-                  drawPixel(cx, cy, px, py);
-              }
-            }
-          } else if (i === 0) {
-            // tail
-            for (let py = 1; py < 3; py++) {
-              for (let px = 1; px < 3; px++) drawPixel(cx, cy, px, py);
-            }
-          } else {
-            for (let py = 0; py < SUB; py++) {
-              for (let px = 0; px < SUB; px++) {
-                if (!((px===1&&py===1)||(px===2&&py===2)))
-                  drawPixel(cx, cy, px, py);
-              }
-            }
-          }
-        }
+      drawBorder();
+      // Title
+      var tw = textWidth('SNAKE');
+      drawText('SNAKE', Math.floor((LCD_W - tw) / 2), 10);
+      // Subtitle
+      var sw = textWidth('PRESS START');
+      drawText('PRESS START', Math.floor((LCD_W - sw) / 2), 22);
+      // High score
+      var hw = textWidth('HI ' + hiScore);
+      drawText('HI ' + hiScore, Math.floor((LCD_W - hw) / 2), 34);
+      // Small snake decoration
+      for (var i = 0; i < 6; i++) {
+        var bx = 30 + i * 4;
+        setPixel(bx, 42); setPixel(bx+1, 42); setPixel(bx+2, 42);
+        setPixel(bx, 43); setPixel(bx+1, 43); setPixel(bx+2, 43);
+        setPixel(bx, 44); setPixel(bx+1, 44); setPixel(bx+2, 44);
       }
+      renderPixels();
       return;
     }
 
+    // Draw border
+    drawBorder();
+
     // Draw food
-    drawFood();
+    drawFood(food.x, food.y);
 
-    // Draw snake
-    for (let i = snake.length - 1; i >= 0; i--) {
-      if (i === 0) {
-        drawSnakeHead(snake[i]);
-      } else if (i === snake.length - 1) {
-        drawSnakeTail(snake[i], snake[i - 1]);
-      } else {
-        drawSnakeBody(snake[i], snake[i - 1], snake[i + 1]);
-      }
+    // Draw snake — solid filled blocks
+    for (var i = 0; i < snake.length; i++) {
+      drawSnakeCell(snake[i].x, snake[i].y);
     }
 
-    // Game over overlay
+    // Game over
     if (state === 'dead') {
-      // Flash effect — invert some pixels
-      ctx.fillStyle = 'rgba(199, 240, 216, 0.7)';
-      ctx.fillRect(0, 0, canvasW, canvasH);
+      // Clear center area for text
+      var cx = 12, cy = 14, cw = 60, ch = 20;
+      for (var y = cy; y < cy + ch; y++) {
+        for (var x = cx; x < cx + cw; x++) {
+          if (x >= 0 && x < LCD_W && y >= 0 && y < LCD_H) pixels[y][x] = 0;
+        }
+      }
+      // Border around text box
+      for (var x = cx; x < cx + cw; x++) { setPixel(x, cy); setPixel(x, cy + ch - 1); }
+      for (var y = cy; y < cy + ch; y++) { setPixel(cx, y); setPixel(cx + cw - 1, y); }
 
-      const s = Math.max(2, Math.floor(pxPerCell / 4));
-      const goW = getTextWidth('GAME OVER', s * 1.5);
-      drawBitmapText('GAME OVER', (canvasW - goW) / 2, canvasH * 0.3, s * 1.5);
-
-      const scW = getTextWidth('SCORE:' + score, s);
-      drawBitmapText('SCORE:' + score, (canvasW - scW) / 2, canvasH * 0.55, s);
-
-      // Add number glyphs for score
-      const rpW = getTextWidth('PRESS TO PLAY', s * 0.8);
-      drawBitmapText('PRESS TO PLAY', (canvasW - rpW) / 2, canvasH * 0.72, s * 0.8);
+      var gw = textWidth('GAME OVER');
+      drawText('GAME OVER', Math.floor((LCD_W - gw) / 2), cy + 3);
+      var sw2 = textWidth('SCORE ' + score);
+      drawText('SCORE ' + score, Math.floor((LCD_W - sw2) / 2), cy + 11);
     }
+
+    renderPixels();
   }
 
-  // Add number font glyphs
-  FONT['0'] = [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]];
-  FONT['1'] = [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]];
-  FONT['2'] = [[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]];
-  FONT['3'] = [[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]];
-  FONT['4'] = [[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]];
-  FONT['5'] = [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]];
-  FONT['6'] = [[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]];
-  FONT['7'] = [[1,1,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]];
-  FONT['8'] = [[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]];
-  FONT['9'] = [[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]];
-
-  // Game loop
   function loop(ts) {
     if (!lastTime) lastTime = ts;
-    const dt = ts - lastTime;
+    var dt = ts - lastTime;
     lastTime = ts;
 
     if (state === 'playing') {
@@ -517,7 +379,7 @@ canvas {
 
   // Keyboard
   document.addEventListener('keydown', function(e) {
-    if (state === 'dead') { init(); state = 'title'; return; }
+    if (state === 'dead') { init(); return; }
     switch (e.key) {
       case 'ArrowUp': case 'w': case 'W':
         e.preventDefault(); setDir(0, -1); break;
@@ -531,49 +393,34 @@ canvas {
   });
 
   // Touch swipe
-  let tx, ty;
-  canvas.addEventListener('touchstart', function(e) {
+  var tx, ty;
+  document.addEventListener('touchstart', function(e) {
     e.preventDefault();
-    if (state === 'dead') { init(); state = 'title'; return; }
+    if (state === 'dead') { init(); return; }
     if (state === 'title') { state = 'playing'; return; }
-    const t = e.touches[0];
+    var t = e.touches[0];
     tx = t.clientX; ty = t.clientY;
-  }, { passive: false });
+  }, {passive: false});
 
-  canvas.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', function(e) { e.preventDefault(); }, {passive: false});
 
-  canvas.addEventListener('touchend', function(e) {
+  document.addEventListener('touchend', function(e) {
     e.preventDefault();
     if (tx === undefined) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - tx;
-    const dy = t.clientY - ty;
-    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - tx;
+    var dy = t.clientY - ty;
+    if (Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
     if (Math.abs(dx) > Math.abs(dy)) {
       setDir(dx > 0 ? 1 : -1, 0);
     } else {
       setDir(0, dy > 0 ? 1 : -1);
     }
-  }, { passive: false });
+  }, {passive: false});
 
-  // D-pad buttons
-  document.querySelectorAll('.d-btn').forEach(function(btn) {
-    btn.addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (state === 'dead') { init(); state = 'title'; return; }
-      if (state === 'title') state = 'playing';
-      switch (btn.dataset.dir) {
-        case 'up': setDir(0, -1); break;
-        case 'down': setDir(0, 1); break;
-        case 'left': setDir(-1, 0); break;
-        case 'right': setDir(1, 0); break;
-      }
-    }, { passive: false });
-  });
-
+  // Click
   canvas.addEventListener('click', function() {
-    if (state === 'dead') { init(); state = 'title'; }
+    if (state === 'dead') init();
     else if (state === 'title') state = 'playing';
   });
 
