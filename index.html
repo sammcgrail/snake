@@ -41,12 +41,66 @@ canvas {
   margin-top: 6px;
   letter-spacing: 1px;
 }
+/* Mobile D-pad — only visible on touch devices / small screens */
+#dpad {
+  display: none;
+  margin-top: 16px;
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+@media (pointer: coarse), (max-width: 600px) {
+  #dpad { display: block; }
+  body { justify-content: start; padding-top: 4vh; }
+}
+.dpad-btn {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  background: #3a4a2a;
+  border: 2px solid #4a5a3a;
+  border-radius: 10px;
+  color: #8a9a6a;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  transition: background 0.1s;
+}
+.dpad-btn:active {
+  background: #2a3a1a;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  transform: scale(0.95);
+}
+#btn-up    { top: 0; left: 54px; }
+#btn-down  { bottom: 0; left: 54px; }
+#btn-left  { top: 54px; left: 0; }
+#btn-right { top: 54px; right: 0; }
+/* Center circle decoration */
+#dpad-center {
+  position: absolute;
+  top: 54px; left: 54px;
+  width: 52px; height: 52px;
+  background: #2a3a1a;
+  border-radius: 50%;
+  border: 2px solid #3a4a2a;
+}
 </style>
 </head>
 <body>
 <div id="lcd">
   <canvas id="game"></canvas>
   <div id="info">SCORE: <span id="sc">0</span></div>
+</div>
+<div id="dpad">
+  <button class="dpad-btn" id="btn-up" data-dir="up">▲</button>
+  <button class="dpad-btn" id="btn-left" data-dir="left">◄</button>
+  <div id="dpad-center"></div>
+  <button class="dpad-btn" id="btn-right" data-dir="right">►</button>
+  <button class="dpad-btn" id="btn-down" data-dir="down">▼</button>
 </div>
 <script>
 (function() {
@@ -76,9 +130,10 @@ canvas {
 
   function setupCanvas() {
     dpr = window.devicePixelRatio || 1;
-    // Scale LCD to fit screen
+    // Scale LCD to fit screen — leave room for d-pad on mobile
+    var hasDpad = window.matchMedia('(pointer: coarse), (max-width: 600px)').matches;
     var maxW = window.innerWidth - 40;
-    var maxH = window.innerHeight - 80;
+    var maxH = window.innerHeight - (hasDpad ? 260 : 80);
     scale = Math.min(Math.floor(maxW / LCD_W), Math.floor(maxH / LCD_H));
     scale = Math.max(scale, 3);
     canvas.style.width = (LCD_W * scale) + 'px';
@@ -420,6 +475,36 @@ canvas {
       setDir(0, dy > 0 ? 1 : -1);
     }
   }, {passive: false});
+
+  // D-pad buttons (mobile)
+  var dpadBtns = document.querySelectorAll('.dpad-btn');
+  for (var b = 0; b < dpadBtns.length; b++) {
+    (function(btn) {
+      btn.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (state === 'dead') { init(); return; }
+        if (state === 'title') state = 'playing';
+        switch (btn.dataset.dir) {
+          case 'up': setDir(0, -1); break;
+          case 'down': setDir(0, 1); break;
+          case 'left': setDir(-1, 0); break;
+          case 'right': setDir(1, 0); break;
+        }
+      }, {passive: false});
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (state === 'dead') { init(); return; }
+        if (state === 'title') state = 'playing';
+        switch (btn.dataset.dir) {
+          case 'up': setDir(0, -1); break;
+          case 'down': setDir(0, 1); break;
+          case 'left': setDir(-1, 0); break;
+          case 'right': setDir(1, 0); break;
+        }
+      });
+    })(dpadBtns[b]);
+  }
 
   // Click
   canvas.addEventListener('click', function() {
