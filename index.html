@@ -44,46 +44,47 @@ canvas {
 /* Mobile D-pad — only visible on touch devices / small screens */
 #dpad {
   display: none;
-  margin-top: 16px;
+  margin-top: 20px;
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 240px;
+  height: 240px;
 }
 @media (pointer: coarse), (max-width: 600px) {
   #dpad { display: block; }
-  body { justify-content: start; padding-top: 4vh; }
+  body { justify-content: start; padding-top: 2vh; }
 }
 .dpad-btn {
   position: absolute;
-  width: 52px;
-  height: 52px;
+  width: 76px;
+  height: 76px;
   background: #3a4a2a;
   border: 2px solid #4a5a3a;
-  border-radius: 10px;
+  border-radius: 14px;
   color: #8a9a6a;
-  font-size: 22px;
+  font-size: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-  transition: background 0.1s;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+  transition: background 0.08s;
+  touch-action: manipulation;
 }
 .dpad-btn:active {
   background: #2a3a1a;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.4);
-  transform: scale(0.95);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  transform: scale(0.93);
 }
-#btn-up    { top: 0; left: 54px; }
-#btn-down  { bottom: 0; left: 54px; }
-#btn-left  { top: 54px; left: 0; }
-#btn-right { top: 54px; right: 0; }
+#btn-up    { top: 0; left: 82px; }
+#btn-down  { bottom: 0; left: 82px; }
+#btn-left  { top: 82px; left: 0; }
+#btn-right { top: 82px; right: 0; }
 /* Center circle decoration */
 #dpad-center {
   position: absolute;
-  top: 54px; left: 54px;
-  width: 52px; height: 52px;
+  top: 82px; left: 82px;
+  width: 76px; height: 76px;
   background: #2a3a1a;
   border-radius: 50%;
   border: 2px solid #3a4a2a;
@@ -133,7 +134,7 @@ canvas {
     // Scale LCD to fit screen — leave room for d-pad on mobile
     var hasDpad = window.matchMedia('(pointer: coarse), (max-width: 600px)').matches;
     var maxW = window.innerWidth - 40;
-    var maxH = window.innerHeight - (hasDpad ? 260 : 80);
+    var maxH = window.innerHeight - (hasDpad ? 340 : 80);
     scale = Math.min(Math.floor(maxW / LCD_W), Math.floor(maxH / LCD_H));
     scale = Math.max(scale, 3);
     canvas.style.width = (LCD_W * scale) + 'px';
