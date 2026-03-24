@@ -451,31 +451,8 @@ canvas {
     }
   });
 
-  // Touch swipe
-  var tx, ty;
-  document.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    if (state === 'dead') { init(); return; }
-    if (state === 'title') { state = 'playing'; return; }
-    var t = e.touches[0];
-    tx = t.clientX; ty = t.clientY;
-  }, {passive: false});
-
+  // Prevent scrolling/bouncing on mobile
   document.addEventListener('touchmove', function(e) { e.preventDefault(); }, {passive: false});
-
-  document.addEventListener('touchend', function(e) {
-    e.preventDefault();
-    if (tx === undefined) return;
-    var t = e.changedTouches[0];
-    var dx = t.clientX - tx;
-    var dy = t.clientY - ty;
-    if (Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      setDir(dx > 0 ? 1 : -1, 0);
-    } else {
-      setDir(0, dy > 0 ? 1 : -1);
-    }
-  }, {passive: false});
 
   // D-pad buttons (mobile)
   var dpadBtns = document.querySelectorAll('.dpad-btn');
